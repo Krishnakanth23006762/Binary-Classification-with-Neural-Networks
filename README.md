@@ -22,7 +22,7 @@ from sklearn.preprocessing import LabelEncoder
 # -----------------------------
 # 1. Load & Prepare Data
 # -----------------------------
-df = pd.read_csv("adult.csv")
+df = pd.read_csv("INCOME.csv")
 
 # ### FIX 1: Strip whitespace from all object columns ###
 for col in df.select_dtypes(include=['object']).columns:
