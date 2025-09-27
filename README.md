@@ -1,4 +1,4 @@
-###  Binary-Classification-with-Neural-Networks
+# Binary-Classification-with-Neural-Networks
 
 ## Aim: To classify census income using a PyTorch deep learning model.
 
