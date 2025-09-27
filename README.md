@@ -188,5 +188,8 @@ new_person = {
 
 print("\nPrediction:", predict(model, new_person))
 ```
+## OUTPUT:
+<img width="279" height="239" alt="image" src="https://github.com/user-attachments/assets/a668d9ac-d68a-4885-8bcc-4dea96c6622b" />
 
-## Result: Achieved ~80–85% accuracy in predicting whether income is <=50K or >50K.
+## Result: 
+Achieved ~80–85% accuracy in predicting whether income is <=50K or >50K.
