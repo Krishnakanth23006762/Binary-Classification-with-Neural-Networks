@@ -4,9 +4,7 @@
 ### Program:
 
 ```
-# ==========================================
-# 1. IMPORTS & SETUP
-# ==========================================
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -20,12 +18,10 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 torch.manual_seed(42)
 np.random.seed(42)
 
-# ==========================================
-# 2. DATA PREPARATION
-# ==========================================
+
 data_dir = "./dataset"  # Structure: data/train/{cats,dogs,panda}, data/test/{cats,dogs,panda}
 
-# Image transformations
+
 train_transforms = transforms.Compose([
     transforms.RandomResizedCrop(224),
     transforms.RandomHorizontalFlip(),
@@ -41,7 +37,7 @@ test_transforms = transforms.Compose([
                          [0.229, 0.224, 0.225])
 ])
 
-# Load datasets
+
 train_data = datasets.ImageFolder(data_dir + "/train", transform=train_transforms)
 test_data  = datasets.ImageFolder(data_dir + "/test", transform=test_transforms)
 
@@ -51,19 +47,17 @@ test_loader  = DataLoader(test_data, batch_size=32, shuffle=False)
 class_names = train_data.classes
 print("Classes:", class_names)
 
-# ==========================================
-# 3. MODEL DESIGN (Transfer Learning with ResNet18)
-# ==========================================
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", device)
 
 model = models.resnet18(pretrained=True)
 
-# Freeze backbone
+
 for param in model.parameters():
     param.requires_grad = False
 
-# Replace final layer for our 3 classes
+
 in_features = model.fc.in_features
 model.fc = nn.Sequential(
     nn.Linear(in_features, 256),
@@ -73,14 +67,12 @@ model.fc = nn.Sequential(
 )
 model = model.to(device)
 
-# Loss & Optimizer
+
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.fc.parameters(), lr=0.001)
 
-# ==========================================
-# 4. TRAINING
-# ==========================================
-epochs = 5  # Try more epochs if dataset is large
+
+epochs = 5 
 for epoch in range(epochs):
     model.train()
     running_loss, correct = 0.0, 0
@@ -102,9 +94,7 @@ for epoch in range(epochs):
     epoch_acc = correct / len(train_data)
     print(f"Epoch {epoch+1}/{epochs}, Loss: {epoch_loss:.4f}, Acc: {epoch_acc:.4f}")
 
-# ==========================================
-# 5. EVALUATION
-# ==========================================
+
 model.eval()
 test_correct, test_loss = 0, 0.0
 all_preds, all_labels = [], []
@@ -132,9 +122,7 @@ disp.plot(cmap="Blues")
 plt.title("Confusion Matrix")
 plt.show()
 
-# ==========================================
-# 6. BONUS – Prediction Function
-# ==========================================
+
 def predict_image(image_path):
     img = Image.open(image_path).convert("RGB")
     transform = test_transforms
@@ -161,4 +149,4 @@ def predict_image(image_path):
 
 ## Result:
 
-Hence the program is completed.
+AI classifier is perfectly identifying the classification in animals in the dataset 
