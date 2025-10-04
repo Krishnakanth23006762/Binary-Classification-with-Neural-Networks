@@ -1,195 +1,184 @@
-# Binary-Classification-with-Neural-Networks
+# Building-an-AI-Classifier-Identifying-Cats-Dogs-Pandas-with-PyTorch
 
-## Aim: To classify census income using a PyTorch deep learning model.
+# 🐱🐶🐼 Cats vs Dogs vs Pandas – Image Classification with PyTorch  
 
-## Requirements: 
-1.Python
-2.Pandas
-3.NumPy
-4.PyTorch
-5.Scikit-learn.
+## 📌 Overview  
+This project is an **image classification model** that predicts whether an image is a **cat, dog, or panda** using **transfer learning (ResNet18)** in **PyTorch**.  
 
-## CODE
+We use the **Cats vs Dogs vs Pandas dataset** from Kaggle and train with GPU support.  
+The project follows these steps:  
+1. Environment Setup  
+2. Data Preparation  
+3. Model Design (Transfer Learning)  
+4. Training  
+5. Evaluation (Accuracy, Confusion Matrix)  
+6. Bonus – Single Image Prediction  
+
+---
+
+## ⚡ Dataset  
+We used the dataset:  
+👉 [Cats, Dogs, Pandas Dataset on Kaggle]((https://www.kaggle.com/datasets/ashishsaxena2209/animal-image-datasetdog-cat-and-panda?utm_source=chatgpt.com))  
+
+Download inside your notebook/repo:  
+```bash
+kaggle datasets download -d gpiosenka/cats-dogs-pandas-images -p ./data --unzip
 ```
-import pandas as pd
-import numpy as np
+
+## Code 
+```python
+# ==========================================
+# 1. IMPORTS & SETUP
+# ==========================================
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import TensorDataset, DataLoader, random_split
-from sklearn.preprocessing import LabelEncoder
+import torch.optim as optim
+from torchvision import datasets, transforms, models
+from torch.utils.data import DataLoader
+import numpy as np
+import matplotlib.pyplot as plt
+from PIL import Image
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
-# -----------------------------
-# 1. Load & Prepare Data
-# -----------------------------
-df = pd.read_csv("INCOME.csv")
-
-# ### FIX 1: Strip whitespace from all object columns ###
-for col in df.select_dtypes(include=['object']).columns:
-    df[col] = df[col].str.strip()
-
-
-# Define columns (consistent naming)
-categorical_cols = [
-    "Workclass", "Education", "Marital Status", "Occupation",
-    "Relationship", "Race", "Gender", "Native Country"
-]
-
-continuous_cols = [
-    "Age", "Final Weight", "EducationNum",
-    "Capital Gain", "capital loss", "Hours per Week"
-]
-
-label_col = "Income"
-
-# Encode categorical columns
-label_encoders = {}
-for col in categorical_cols:
-    le = LabelEncoder()
-    df[col] = le.fit_transform(df[col].astype(str))
-    label_encoders[col] = le
-
-# Encode label
-label_encoder = LabelEncoder()
-df[label_col] = label_encoder.fit_transform(df[label_col])
-
-# Separate arrays
-cats = np.stack([df[col].values for col in categorical_cols], axis=1)
-conts = np.stack([df[col].values for col in continuous_cols], axis=1)
-labels = df[label_col].values
-
-# Convert to tensors
-cats = torch.tensor(cats, dtype=torch.int64)
-conts = torch.tensor(conts, dtype=torch.float)
-labels = torch.tensor(labels, dtype=torch.long)
-
-# Create dataset
-dataset = TensorDataset(cats, conts, labels)
-
-# Split dataset (80% train / 20% test)
-total_size = len(dataset)
-train_size = int(total_size * 0.8)
-test_size = total_size - train_size
-
-train_ds, test_ds = random_split(dataset, [train_size, test_size])
-
-# DataLoaders
-train_dl = DataLoader(train_ds, batch_size=64, shuffle=True)
-test_dl = DataLoader(test_ds, batch_size=64)
-
-# -----------------------------
-# 2. Define Model
-# -----------------------------
-class TabularModel(nn.Module):
-    def __init__(self, emb_sizes, n_cont, out_sz, hidden_sz=50, p=0.4):
-        super().__init__()
-        self.embeds = nn.ModuleList([nn.Embedding(c, s) for c, s in emb_sizes])
-        self.emb_drop = nn.Dropout(p)
-        self.bn_cont = nn.BatchNorm1d(n_cont)
-
-        n_emb = sum(e.embedding_dim for e in self.embeds)
-        self.fc1 = nn.Linear(n_emb + n_cont, hidden_sz)
-        self.fc2 = nn.Linear(hidden_sz, out_sz)
-        self.dropout = nn.Dropout(p)
-
-    def forward(self, x_cat, x_cont):
-        embeddings = [e(x_cat[:, i]) for i, e in enumerate(self.embeds)]
-        x = torch.cat(embeddings, 1)
-        x = self.emb_drop(x)
-
-        x_cont = self.bn_cont(x_cont)
-        x = torch.cat([x, x_cont], 1)
-
-        x = F.relu(self.fc1(x))
-        x = self.dropout(x)
-        x = self.fc2(x)
-        return x
-
-# Embedding sizes
-cat_sizes = [len(df[col].unique()) for col in categorical_cols]
-emb_sizes = [(c, min(50, (c+1)//2)) for c in cat_sizes]
-
-# Model
 torch.manual_seed(42)
-model = TabularModel(emb_sizes, n_cont=len(continuous_cols), out_sz=2)
+np.random.seed(42)
 
-# Loss & optimizer
+# ==========================================
+# 2. DATA PREPARATION
+# ==========================================
+data_dir = "./dataset"  # Structure: data/train/{cats,dogs,panda}, data/test/{cats,dogs,panda}
+
+# Image transformations
+train_transforms = transforms.Compose([
+    transforms.RandomResizedCrop(224),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+    transforms.Normalize([0.485, 0.456, 0.406],
+                         [0.229, 0.224, 0.225])
+])
+
+test_transforms = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize([0.485, 0.456, 0.406],
+                         [0.229, 0.224, 0.225])
+])
+
+# Load datasets
+train_data = datasets.ImageFolder(data_dir + "/train", transform=train_transforms)
+test_data  = datasets.ImageFolder(data_dir + "/test", transform=test_transforms)
+
+train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
+test_loader  = DataLoader(test_data, batch_size=32, shuffle=False)
+
+class_names = train_data.classes
+print("Classes:", class_names)
+
+# ==========================================
+# 3. MODEL DESIGN (Transfer Learning with ResNet18)
+# ==========================================
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("Using device:", device)
+
+model = models.resnet18(pretrained=True)
+
+# Freeze backbone
+for param in model.parameters():
+    param.requires_grad = False
+
+# Replace final layer for our 3 classes
+in_features = model.fc.in_features
+model.fc = nn.Sequential(
+    nn.Linear(in_features, 256),
+    nn.ReLU(),
+    nn.Dropout(0.5),
+    nn.Linear(256, len(class_names))  # 3 classes
+)
+model = model.to(device)
+
+# Loss & Optimizer
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+optimizer = optim.Adam(model.fc.parameters(), lr=0.001)
 
-# -----------------------------
-# 3. Train Model
-# -----------------------------
-epochs = 30
+# ==========================================
+# 4. TRAINING
+# ==========================================
+epochs = 5  # Try more epochs if dataset is large
 for epoch in range(epochs):
     model.train()
-    total_loss = 0
-    for x_cat, x_cont, y in train_dl:
+    running_loss, correct = 0.0, 0
+
+    for inputs, labels in train_loader:
+        inputs, labels = inputs.to(device), labels.to(device)
+
         optimizer.zero_grad()
-        preds = model(x_cat, x_cont)
-        loss = criterion(preds, y)
+        outputs = model(inputs)
+        loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
-        total_loss += loss.item()
 
-    if (epoch+1) % 5 == 0:
-        print(f"Epoch {epoch+1}/{epochs}, Loss: {total_loss/len(train_dl):.4f}")
+        running_loss += loss.item() * inputs.size(0)
+        _, preds = torch.max(outputs, 1)
+        correct += (preds == labels).sum().item()
 
-# -----------------------------
-# 4. Evaluate Model
-# -----------------------------
+    epoch_loss = running_loss / len(train_data)
+    epoch_acc = correct / len(train_data)
+    print(f"Epoch {epoch+1}/{epochs}, Loss: {epoch_loss:.4f}, Acc: {epoch_acc:.4f}")
+
+# ==========================================
+# 5. EVALUATION
+# ==========================================
 model.eval()
-correct, total, test_loss = 0, 0, 0
+test_correct, test_loss = 0, 0.0
+all_preds, all_labels = [], []
+
 with torch.no_grad():
-    for x_cat, x_cont, y in test_dl:
-        preds = model(x_cat, x_cont)
-        loss = criterion(preds, y)
-        test_loss += loss.item()
-        _, predicted = torch.max(preds, 1)
-        correct += (predicted == y).sum().item()
-        total += y.size(0)
+    for inputs, labels in test_loader:
+        inputs, labels = inputs.to(device), labels.to(device)
+        outputs = model(inputs)
+        loss = criterion(outputs, labels)
+        test_loss += loss.item() * inputs.size(0)
+        _, preds = torch.max(outputs, 1)
 
-print(f"\nTest Loss: {test_loss/len(test_dl):.4f}")
-print(f"Test Accuracy: {100*correct/total:.2f}%")
+        test_correct += (preds == labels).sum().item()
+        all_preds.extend(preds.cpu().numpy())
+        all_labels.extend(labels.cpu().numpy())
 
-# -----------------------------
-# 5. Bonus: Predict New Data
-# -----------------------------
-def predict(model, input_dict):
+test_loss /= len(test_data)
+test_acc = test_correct / len(test_data)
+print(f"\nTest Loss: {test_loss:.4f}, Test Accuracy: {test_acc*100:.2f}%")
+
+
+cm = confusion_matrix(all_labels, all_preds)
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
+disp.plot(cmap="Blues")
+plt.title("Confusion Matrix")
+plt.show()
+
+# ==========================================
+# 6. BONUS – Prediction Function
+# ==========================================
+def predict_image(image_path):
+    img = Image.open(image_path).convert("RGB")
+    transform = test_transforms
+    img_tensor = transform(img).unsqueeze(0).to(device)
+
     model.eval()
-    cat_data = [label_encoders[col].transform([input_dict[col]])[0] for col in categorical_cols]
-    cont_data = [input_dict[col] for col in continuous_cols]
-    cat_tensor = torch.tensor([cat_data], dtype=torch.int64)
-    cont_tensor = torch.tensor([cont_data], dtype=torch.float)
-
     with torch.no_grad():
-        preds = model(cat_tensor, cont_tensor)
-        _, predicted = torch.max(preds, 1)
-    return label_encoder.inverse_transform(predicted.numpy())[0]
+        outputs = model(img_tensor)
+        _, pred = torch.max(outputs, 1)
+        prob = torch.softmax(outputs, dim=1)[0][pred].item() * 100
 
-
-# ### FIX 2: Correct the keys to match the column lists ###
-new_person = {
-    "Workclass": "Private",
-    "Education": "Bachelors",
-    "Marital Status": "Never-married",
-    "Occupation": "Adm-clerical",
-    "Relationship": "Not-in-family",
-    "Race": "White",
-    "Gender": "Male",
-    "Native Country": "United-States",
-    "Age": 28,
-    "Final Weight": 338409,
-    "EducationNum": 13,
-    "Capital Gain": 0,
-    "capital loss": 0,
-    "Hours per Week": 40
-}
-
-print("\nPrediction:", predict(model, new_person))
+    result = class_names[pred.item()]
+    print(f"Prediction: {result} ({prob:.2f}% confidence)")
+    return result
 ```
-## OUTPUT:
-<img width="279" height="239" alt="image" src="https://github.com/user-attachments/assets/a668d9ac-d68a-4885-8bcc-4dea96c6622b" />
 
-## Result: 
-Achieved ~80–85% accuracy in predicting whether income is <=50K or >50K.
+
+## Output
+
+![alt text](image.png)
+
+## Result
+
+successfully implmentment of classificer identifying cats,dogs and pandas using pytorch
