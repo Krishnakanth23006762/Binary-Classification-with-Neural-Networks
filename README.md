@@ -1,4 +1,7 @@
-# Building-an-AI-Classifier-Identifying-Cats-Dogs-Pandas-with-PyTorch
+# Workshop-2 -AI-Classifier
+
+## AIM
+ To Building-an-AI-Classifier-Identifying-Cats-Dogs-Pandas-with-PyTorch
 
 
 ### Program:
